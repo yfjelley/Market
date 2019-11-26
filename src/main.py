@@ -22,6 +22,7 @@ def initialize():
     """Initialize Server."""
 
     for platform in config.markets:
+        print(config.markets)
         if platform == const.OKEX or platform == const.OKEX_MARGIN:
             from markets.okex import OKEx as Market
         elif platform == const.OKEX_FUTURE:

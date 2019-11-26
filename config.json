@@ -26,13 +26,12 @@
     ],
 
     "MARKETS": {
-        "okex": {
+        "okex_future": {
             "symbols": [
-                "BTC/USDT",
-                "LTC/USDT"
+                "BTC-USD-191227"
             ],
             "channels": [
-                "kline", "orderbook", "trade"
+                "orderbook"
             ]
         },
         "orderbook_length": 10

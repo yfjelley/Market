@@ -31,7 +31,7 @@ OKEx Future 的行情数据根据 [OKEx Future官方文档](https://www.okex.com
     "MARKETS": {
         "okex_future": {
             "symbols": [
-                "BTC-USD-190524"
+                "BTC-USD-191227"
             ],
             "channels": [
                 "orderbook"
