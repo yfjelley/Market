@@ -1,41 +1,66 @@
 # -*- coding:utf-8 -*-
 
 """
-行情服务
+Market Server.
+
+Market Server will get market data from Exchange via Websocket or REST as soon as possible, then packet market data into
+MarketEvent and publish into EventCenter.
 
 Author: HuangTao
 Date:   2018/05/04
+Email:  huangtao@ifclover.com
 """
 
 import sys
 
+from quant import const
 from quant.quant import quant
 from quant.config import config
-from quant.const import OKEX, OKEX_FUTURE, BINANCE, DERIBIT
 
 
 def initialize():
-    """ 初始化
-    """
+    """Initialize Server."""
 
-    for platform in config.platforms:
-        if platform == OKEX:
-            from platforms.okex import OKEx as Market
-        elif platform == OKEX_FUTURE:
-            from platforms.okex_ftu import OKExFuture as Market
-        elif platform == BINANCE:
-            from platforms.binance import Binance as Market
-        elif platform == DERIBIT:
-            from platforms.deribit import Deribit as Market
+    for platform in config.markets:
+        if platform == const.OKEX or platform == const.OKEX_MARGIN:
+            from markets.okex import OKEx as Market
+        elif platform == const.OKEX_FUTURE:
+            from markets.okex_ftu import OKExFuture as Market
+        elif platform == const.BINANCE:
+            from markets.binance import Binance as Market
+        elif platform == const.DERIBIT:
+            from markets.deribit import Deribit as Market
+        elif platform == const.BITMEX:
+            from markets.bitmex import Bitmex as Market
+        elif platform == const.HUOBI:
+            from markets.huobi import Huobi as Market
+        elif platform == const.COINSUPER:
+            from markets.coinsuper import CoinsuperMarket as Market
+        elif platform == const.COINSUPER_PRE:
+            from markets.coinsuper_pre import CoinsuperPreMarket as Market
+        elif platform == const.KRAKEN:
+            from markets.kraken import KrakenMarket as Market
+        elif platform == const.GATE:
+            from markets.gate import GateMarket as Market
+        elif platform == const.GEMINI:
+            from markets.gemini import GeminiMarket as Market
+        elif platform == const.COINBASE:
+            from markets.coinbase import CoinbaseMarket as Market
+        elif platform == const.KUCOIN:
+            from markets.kucoin import KucoinMarket as Market
+        elif platform == const.HUOBI_FUTURE:
+            from markets.huobi_future import HuobiFutureMarket as Market
         else:
             from quant.utils import logger
             logger.error("platform error! platform:", platform)
             continue
-        Market()
+        cc = config.markets[platform]
+        cc["platform"] = platform
+        Market(**cc)
 
 
 def main():
-    config_file = sys.argv[1]  # 配置文件 config.json
+    config_file = sys.argv[1]  # config file, e.g. config.json.
     quant.initialize(config_file)
     initialize()
     quant.start()
