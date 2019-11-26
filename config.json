@@ -15,15 +15,6 @@
     },
     "PROXY": "http://127.0.0.1:1080",
 
-    "ACCOUNTS": [
-        {
-            "platform": "coinsuper",
-            "host": "https://api.coinsuper.com",
-            "account": "test@gmail.com",
-            "access_key": "abc1234",
-            "secret_key": "abc1234"
-        }
-    ],
 
     "MARKETS": {
         "okex_future": {
@@ -31,9 +22,8 @@
                 "BTC-USD-191227"
             ],
             "channels": [
-                "orderbook"
+                "kline_5m"
             ]
-        },
-        "orderbook_length": 10
+        }
     }
 }

@@ -12,6 +12,8 @@ Email:  huangtao@ifclover.com
 import zlib
 import json
 import copy
+import asyncio
+import datetime
 
 from quant import const
 from quant.utils import tools
@@ -20,7 +22,14 @@ from quant.tasks import LoopRunTask
 from quant.utils.web import Websocket
 from quant.event import EventOrderbook, EventKline, EventTrade
 from quant.order import ORDER_ACTION_BUY, ORDER_ACTION_SELL
+from quant.platform.okex_future import OKExFutureRestAPI
+from quant.heartbeat import heartbeat
 
+def get_timestamp(dt=''):
+    if not dt:
+        dt = datetime.datetime.now()
+    t = dt.isoformat()
+    return t + "Z"
 
 class OKExFuture:
     """ OKEx Future Market Server.
@@ -37,9 +46,13 @@ class OKExFuture:
     def __init__(self, **kwargs):
         self._platform = kwargs["platform"]
         self._wss = kwargs.get("wss", "wss://real.okex.com:10442")
+        self._host = kwargs.get("host", "https://www.okex.com")
         self._symbols = list(set(kwargs.get("symbols")))
         self._channels = kwargs.get("channels")
         self._orderbook_length = kwargs.get("orderbook_length", 10)
+        self._access_key = kwargs.get("access_key")
+        self._secret_key = kwargs.get("secret_key")
+        self._passphrase = kwargs.get("passphrase")
 
         self._orderbooks = {}  # orderbook data, e.g. {"symbol": {"bids": {"price": quantity, ...}, "asks": {...}}}
 
@@ -48,6 +61,10 @@ class OKExFuture:
                              process_binary_callback=self.process_binary)
         self._ws.initialize()
         LoopRunTask.register(self.send_heartbeat_msg, 5)
+
+        self._rest_api = OKExFutureRestAPI(self._host, self._access_key, self._secret_key, self._passphrase)
+
+        self._initialize()
 
     async def connected_callback(self):
         """After create connection to Websocket server successfully, we will subscribe orderbook/kline/trade event."""
@@ -65,8 +82,8 @@ class OKExFuture:
                 for symbol in self._symbols:
                     ch = "futures/candle60s:{s}".format(s=symbol.replace("/", '-'))
                     ches.append(ch)
-            else:
-                logger.error("channel error! channel:", ch, caller=self)
+            # else:
+            #     logger.error("channel error! channel:", ch, caller=self)
             if len(ches) > 0:
                 msg = {
                     "op": "subscribe",
@@ -247,3 +264,68 @@ class OKExFuture:
         }
         EventKline(**kline).publish()
         logger.info("symbol:", symbol, "kline:", kline, caller=self)
+
+    def _initialize(self):
+        """ Initialize."""
+        for channel in self._channels:
+            if channel == const.MARKET_TYPE_KLINE_5M:
+                heartbeat.register(self.create_kline_tasks, 1, const.MARKET_TYPE_KLINE_5M)
+            elif channel == const.MARKET_TYPE_KLINE_15M:
+                heartbeat.register(self.create_kline_tasks, 1, const.MARKET_TYPE_KLINE_15M)
+            elif channel == const.MARKET_TYPE_KLINE_1H:
+                heartbeat.register(self.create_kline_tasks, 1, const.MARKET_TYPE_KLINE_1H)
+            # else:
+            #     logger.error("channel error! channel:", channel, caller=self)
+
+    async def create_kline_tasks(self, kline_type, *args, **kwargs):
+        """ Create some tasks to fetch kline information
+
+        Args:
+            kline_type: Type of line, kline or kline_5m or kline_15m
+
+        NOTE: Because of REST API request limit, we only send one request pre minute.
+        """
+        for index, symbol in enumerate(self._symbols):
+            asyncio.get_event_loop().call_later(index, self.delay_kline_update, symbol, kline_type)
+
+    def delay_kline_update(self, symbol, kline_type):
+        """ Do kline update.
+        """
+        asyncio.get_event_loop().create_task(self.do_kline_update(symbol, kline_type))
+
+    async def do_kline_update(self, symbol, kline_type):
+        if kline_type == const.MARKET_TYPE_KLINE_5M:
+            range_type = 5 * 60
+        elif kline_type == const.MARKET_TYPE_KLINE_15M:
+            range_type = 15 * 60
+        elif kline_type == const.MARKET_TYPE_KLINE_1H:
+            range_type = 60 * 60
+        else:
+            return
+        start = get_timestamp(datetime.datetime.now() - datetime.timedelta(days=5))
+        end = get_timestamp()
+        result, error = await self._rest_api.get_kline(symbol, start, end, range_type)
+
+        if error:
+            return
+
+        open, hig, low, close = [], [], [], []
+        if len(result):
+            for item in result:
+                open.append(item[1])
+                hig.append(item[2])
+                low.append(item[3])
+                close.append(item[4])
+        kline = {
+            "platform": self._platform,
+            "symbol": symbol,
+            "open": open[::-1],
+            "high": hig[::-1],
+            "low": low[::-1],
+            "close": close[::-1],
+            "kline_type": kline_type
+        }
+        print(kline)
+        EventKline(**kline).publish()
+        logger.info("symbol:", symbol, "kline:", kline, caller=self)
+
