@@ -316,10 +316,11 @@ class OKExFuture:
                 hig.append(item[2])
                 low.append(item[3])
                 close.append(item[4])
+
         kline = {
             "platform": self._platform,
             "symbol": symbol,
-            "open": open[::-1],
+            "open": open[::-1],#最近的数据在最后面
             "high": hig[::-1],
             "low": low[::-1],
             "close": close[::-1],

@@ -22,7 +22,7 @@
                 "BTC-USD-191227"
             ],
             "channels": [
-                "kline_5m"
+                "kline_1h"
             ]
         }
     }
