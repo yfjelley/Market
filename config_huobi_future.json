@@ -17,13 +17,16 @@
 
 
     "MARKETS": {
-        "okex_future": {
+        "huobi_future": {
             "symbols": [
-                "BTC-USD-191227"
+                "BTC_CW",
+                "BTC_NW",
+                "BTC_CQ"
             ],
             "channels": [
-                "kline_1h"
-            ]
+                "kline5m"
+            ],
+            "orderbook_length": 10
         }
     }
 }
