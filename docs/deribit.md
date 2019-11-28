@@ -4,7 +4,7 @@
 Deribit 的行情数据根据 [Deribit官方文档](https://www.deribit.com/main#/pages/docs/api) 提供的方式，
 通过websocket协议，订阅 Deribit 官方实时推送的行情数据。然后程序将源数据经过适当打包处理，并通过行情事件的形式发布到事件中心。
 
-当前行情服务器能够收集 Deribit 的行情数据包括：Orderbook(订单薄)。
+当前行情服务器能够收集 Deribit 的行情数据包括：Orderbook(订单薄)、Trade(成交)。
 
 
 ##### 1. 服务配置
@@ -60,7 +60,7 @@ Deribit 的行情数据根据 [Deribit官方文档](https://www.deribit.com/main
 - MARKETS `dict` 需要配置的交易平台，key为交易平台名称，value为对应的行情配置
 - deribit `dict` 交易平台行情配置
 - symbols `list` 需要订阅行情数据的交易对，可以是一个或多个，即Deribit提供的合约名称
-- channels `list` 需要订阅的行情类型，可以是一个或多个，其中： orderbook 订单薄
+- channels `list` 需要订阅的行情类型，可以是一个或多个，其中： orderbook 订单薄、 trade 成交
 - orderbook_length `int` `Orderbook` 行情推送长度，`可选，默认10`
 
 

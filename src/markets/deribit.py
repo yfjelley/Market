@@ -18,7 +18,8 @@ from quant.utils import logger
 from quant.config import config
 from quant.tasks import LoopRunTask
 from quant.utils.web import Websocket
-from quant.event import EventOrderbook
+from quant.event import EventOrderbook, EventTrade
+from quant.order import ORDER_ACTION_BUY, ORDER_ACTION_SELL
 
 
 class Deribit:
@@ -29,7 +30,7 @@ class Deribit:
             platform: Exchange platform name, must be `deribit`.
             wss: Exchange Websocket host address, default is `wss://deribit.com`.
             symbols: Symbol list.
-            channels: Channel list, only `orderbook` to be enabled.
+            channels: Channel list, only `orderbook` / `trade` to be enabled.
             orderbook_length: The length of orderbook's data to be published via OrderbookEvent, default is 10.
     """
 
@@ -59,11 +60,24 @@ class Deribit:
 
     async def connected_callback(self):
         """After create connection to Websocket server successfully, we will subscribe orderbook/trade/kline event."""
+        if not self._symbols:
+            logger.warn("symbols not found in config file.", caller=self)
+            return
+        events = []
+        for channel in self._channels:
+            if channel == "orderbook":
+                events.append("order_book")
+            elif channel == "trade":
+                events.append("trade")
+        if not events:
+            logger.warn("channels not found in config file.", caller=self)
+            return
+
         nonce = tools.get_cur_timestamp_ms()
         uri = "/api/v1/private/subscribe"
         params = {
             "instrument": self._symbols,
-            "event": ["order_book"]
+            "event": events
         }
         sign = self.deribit_signature(nonce, uri, params, self._access_key, self._secret_key)
         data = {
@@ -96,17 +110,25 @@ class Deribit:
         notifications = msg.get("notifications")
         if not notifications:
             return
-        message = notifications[0].get("message")
-        if message != "order_book_event":
-            return
+        for item in notifications:
+            message = item["message"]
+            data = item["result"]
+            if message == "order_book_event":
+                await self.process_orderbook(data)
+            elif message == "trade_event":
+                await self.process_trade(data)
 
-        symbol = notifications[0].get("result").get("instrument")
+    async def process_orderbook(self, data):
+        """Process orderbook data and publish OrderbookEvent."""
+        symbol = data["instrument"]
+        if symbol not in self._symbols:
+            return
         bids = []
-        for item in notifications[0].get("result").get("bids")[:self._orderbook_length]:
+        for item in data["bids"][:self._orderbook_length]:
             b = [item.get("price"), item.get("quantity")]
             bids.append(b)
         asks = []
-        for item in notifications[0].get("result").get("asks")[:self._orderbook_length]:
+        for item in data["asks"][:self._orderbook_length]:
             a = [item.get("price"), item.get("quantity")]
             asks.append(a)
         self._last_msg_ts = tools.get_cur_timestamp_ms()
@@ -118,7 +140,24 @@ class Deribit:
             "timestamp": self._last_msg_ts
         }
         EventOrderbook(**orderbook).publish()
-        logger.info("symbol:", symbol, "orderbook:", orderbook, caller=self)
+        logger.debug("symbol:", symbol, "orderbook:", orderbook, caller=self)
+
+    async def process_trade(self, data):
+        """Process trade data and publish TradeEvent."""
+        for item in data:
+            symbol = item["instrument"]
+            if symbol not in self._symbols:
+                return
+            trade = {
+                "platform": self._platform,
+                "symbol": symbol,
+                "action":  ORDER_ACTION_SELL if item["direction"] == "sell" else ORDER_ACTION_BUY,
+                "price": item.get("price"),
+                "quantity": item.get("quantity"),
+                "timestamp": item["timeStamp"]
+            }
+            EventTrade(**trade).publish()
+            logger.info("symbol:", symbol, "trade:", trade, caller=self)
 
     def deribit_signature(self, nonce, uri, params, access_key, access_secret):
         """ 生成signature

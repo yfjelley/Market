@@ -11,6 +11,7 @@ Email:  huangtao@ifclover.com
 
 from quant.utils import tools
 from quant.utils import logger
+from quant.tasks import LoopRunTask
 from quant.utils.web import Websocket
 from quant.const import MARKET_TYPE_KLINE
 from quant.order import ORDER_ACTION_BUY, ORDER_ACTION_SELL
@@ -38,6 +39,7 @@ class Bitmex:
         url = self._wss + "/realtime"
         self._ws = Websocket(url, self.connected_callback, process_callback=self.process)
         self._ws.initialize()
+        LoopRunTask.register(self.send_heartbeat_message, 30)
 
     async def connected_callback(self):
         """After create connection to Websocket server successfully, we will subscribe orderbook/trade/kline event."""
@@ -55,13 +57,19 @@ class Bitmex:
                 for symbol in self._symbols:
                     channel = self._symbol_to_channel(symbol, "tradeBin1m")
                     channels.append(channel)
-        if channels:
+        while channels:
             data = {
                 "op": "subscribe",
-                "args": channels
+                "args": channels[:10]
             }
             await self._ws.send(data)
+            channels = channels[10:]
             logger.info("subscribe orderbook/trade/kline successfully.", caller=self)
+
+    async def send_heartbeat_message(self, *args, **kwargs):
+        """Send ping message to server."""
+        msg = "ping"
+        await self._ws.send(msg)
 
     async def process(self, msg):
         """ Process message that received from Websocket connection.
@@ -69,8 +77,11 @@ class Bitmex:
         Args:
             msg: Message data received from Websocket connection.
         """
-        logger.debug("msg:", msg, caller=self)
+        # logger.debug("msg:", msg, caller=self)
         if not isinstance(msg, dict):
+            return
+        if msg.get("error"):
+            logger.error("msg:", msg, caller=self)
             return
 
         table = msg.get("table")
@@ -93,7 +104,7 @@ class Bitmex:
                 "timestamp": tools.utctime_str_to_mts(item["timestamp"])
             }
             EventOrderbook(**orderbook).publish()
-            logger.info("symbol:", symbol, "orderbook:", orderbook, caller=self)
+            logger.debug("symbol:", symbol, "orderbook:", orderbook, caller=self)
 
     async def process_kline(self, data):
         """Process kline data and publish KlineEvent."""
@@ -102,16 +113,16 @@ class Bitmex:
             kline = {
                 "platform": self._platform,
                 "symbol": symbol,
-                "open": "%.1f" % item["open"],
-                "high": "%.1f" % item["high"],
-                "low": "%.1f" % item["low"],
-                "close": "%.1f" % item["close"],
+                "open": "%.8f" % item["open"],
+                "high": "%.8f" % item["high"],
+                "low": "%.8f" % item["low"],
+                "close": "%.8f" % item["close"],
                 "volume": str(item["volume"]),
                 "timestamp": tools.utctime_str_to_mts(item["timestamp"]),
                 "kline_type": MARKET_TYPE_KLINE
             }
             EventKline(**kline).publish()
-            logger.info("symbol:", symbol, "kline:", kline, caller=self)
+            logger.debug("symbol:", symbol, "kline:", kline, caller=self)
 
     async def process_trade(self, data):
         """Process trade data and publish TradeEvent."""
@@ -120,13 +131,13 @@ class Bitmex:
             trade = {
                 "platform": self._platform,
                 "symbol": symbol,
-                "action":  ORDER_ACTION_BUY if item["side"] else ORDER_ACTION_SELL,
-                "price": "%.1f" % item["price"],
+                "action":  ORDER_ACTION_BUY if item["side"] == "Buy" else ORDER_ACTION_SELL,
+                "price": "%.8f" % item["price"],
                 "quantity": str(item["size"]),
                 "timestamp": tools.utctime_str_to_mts(item["timestamp"])
             }
             EventTrade(**trade).publish()
-            logger.info("symbol:", symbol, "trade:", trade, caller=self)
+            logger.debug("symbol:", symbol, "trade:", trade, caller=self)
 
     def _symbol_to_channel(self, symbol, channel_type):
         channel = "{channel_type}:{symbol}".format(channel_type=channel_type, symbol=symbol)

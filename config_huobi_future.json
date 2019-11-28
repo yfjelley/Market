@@ -24,7 +24,7 @@
                 "BTC_CQ"
             ],
             "channels": [
-                "kline5m"
+                "kline"
             ],
             "orderbook_length": 10
         }

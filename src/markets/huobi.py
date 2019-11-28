@@ -111,7 +111,7 @@ class Huobi:
                 "kline_type": MARKET_TYPE_KLINE
             }
             EventKline(**kline).publish()
-            logger.info("symbol:", symbol, "kline:", kline, caller=self)
+            logger.debug("symbol:", symbol, "kline:", kline, caller=self)
         elif channel.find("depth") != -1:
             d = data.get("tick")
             asks, bids = [], []
@@ -131,7 +131,7 @@ class Huobi:
                 "timestamp": d.get("ts")
             }
             EventOrderbook(**orderbook).publish()
-            logger.info("symbol:", symbol, "orderbook:", orderbook, caller=self)
+            logger.debug("symbol:", symbol, "orderbook:", orderbook, caller=self)
         elif channel.find("trade") != -1:
             tick = data.get("tick")
             direction = tick["data"][0].get("direction")
@@ -146,7 +146,7 @@ class Huobi:
                 "timestamp": tick.get("ts")
             }
             EventTrade(**trade).publish()
-            logger.info("symbol:", symbol, "trade:", trade, caller=self)
+            logger.debug("symbol:", symbol, "trade:", trade, caller=self)
         else:
             logger.error("event error! msg:", msg, caller=self)
 

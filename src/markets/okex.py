@@ -27,16 +27,16 @@ class OKEx:
 
     Attributes:
         kwargs:
-            platform: Exchange platform name, must be `okex`.
-            host: Exchange Websocket host address, default is `wss://real.okex.com:10442`.
+            platform: Exchange platform name, must be `okex` or `okex_margin`.
+            host: Exchange Websocket host address, default is `wss://real.okex.com:8443`.
             symbols: symbol list, OKEx Future instrument_id list.
-            channels: channel list, only `orderbook` , `kline` and `trade` to be enabled.
+            channels: channel list, only `orderbook`, `kline` and `trade` to be enabled.
             orderbook_length: The length of orderbook's data to be published via OrderbookEvent, default is 10.
     """
 
     def __init__(self, **kwargs):
         self._platform = kwargs["platform"]
-        self._wss = kwargs.get("wss", "wss://real.okex.com:10442")
+        self._wss = kwargs.get("wss", "wss://real.okex.com:8443")
         self._symbols = list(set(kwargs.get("symbols")))
         self._channels = kwargs.get("channels")
         self._orderbook_length = kwargs.get("orderbook_length", 10)
@@ -111,7 +111,6 @@ class OKEx:
             for d in msg["data"]:
                 await self.process_trade(d)
         elif table == "spot/candle60s":
-            print(msg)
             for d in msg["data"]:
                 await self.process_kline(d)
 
@@ -196,7 +195,7 @@ class OKEx:
             "timestamp": ob["timestamp"]
         }
         EventOrderbook(**orderbook).publish()
-        logger.info("symbol:", symbol, "orderbook:", orderbook, caller=self)
+        logger.debug("symbol:", symbol, "orderbook:", orderbook, caller=self)
 
     async def process_trade(self, data):
         """Process trade data and publish TradeEvent."""
@@ -217,7 +216,7 @@ class OKEx:
             "timestamp": timestamp
         }
         EventTrade(**trade).publish()
-        logger.info("symbol:", symbol, "trade:", trade, caller=self)
+        logger.debug("symbol:", symbol, "trade:", trade, caller=self)
 
     async def process_kline(self, data):
         """Process kline data and publish KlineEvent."""
@@ -243,4 +242,4 @@ class OKEx:
             "kline_type": const.MARKET_TYPE_KLINE
         }
         EventKline(**kline).publish()
-        logger.info("symbol:", symbol, "kline:", kline, caller=self)
+        logger.debug("symbol:", symbol, "kline:", kline, caller=self)

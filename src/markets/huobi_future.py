@@ -3,6 +3,7 @@
 """
 Huobi Future Market Server.
 https://github.com/huobiapi/API_Docs/wiki/WS_api_reference_Derivatives
+
 Author: HuangTao
 Date:   2019/02/25
 Email:  huangtao@ifclover.com
@@ -20,6 +21,7 @@ from quant.event import EventTrade, EventKline, EventOrderbook
 
 class HuobiFutureMarket:
     """ Huobi Future Market Server.
+
     Attributes:
         kwargs:
             platform: Exchange platform name, must be `huobi_future`.
@@ -46,16 +48,15 @@ class HuobiFutureMarket:
         """ After create connection to Websocket server successfully, we will subscribe orderbook event.
         """
         for ch in self._channels:
-            if ch.startswith("kline"):
+            if ch == "kline":
                 for symbol in self._symbols:
-                    channel = self._symbol_to_channel(symbol, ch)
+                    channel = self._symbol_to_channel(symbol, "kline")
                     if not channel:
                         continue
-                    data = {
+                    kline = {
                         "sub": channel
                     }
-                    await self._ws.send(data)
-
+                    await self._ws.send(kline)
             elif ch == "orderbook":
                 for symbol in self._symbols:
                     channel = self._symbol_to_channel(symbol, "depth")
@@ -79,6 +80,7 @@ class HuobiFutureMarket:
 
     async def process_binary(self, msg):
         """ Process binary message that received from Websocket connection.
+
         Args:
             msg: Binary message.
         """
@@ -94,7 +96,6 @@ class HuobiFutureMarket:
         symbol = self._c_to_s[channel]
 
         if channel.find("kline") != -1:
-            print(data)
             d = data.get("tick")
             kline = {
                 "platform": self._platform,
@@ -144,16 +145,6 @@ class HuobiFutureMarket:
     def _symbol_to_channel(self, symbol, channel_type):
         if channel_type == "kline":
             channel = "market.{s}.kline.1min".format(s=symbol)
-        elif channel_type == "kline5m":
-            channel = "market.{s}.kline.5min".format(s=symbol)
-        elif channel_type == "kline15m":
-            channel = "market.{s}.kline.15min".format(s=symbol)
-        elif channel_type == "kline1h":
-            channel = "market.{s}.kline.1h".format(s=symbol)
-        elif channel_type == "kline4h":
-            channel = "market.{s}.kline.4h".format(s=symbol)
-        elif channel_type == "kline1day":
-            channel = "market.{s}.kline.1day".format(s=symbol)
         elif channel_type == "depth":
             channel = "market.{s}.depth.step6".format(s=symbol)
         elif channel_type == "trade":
