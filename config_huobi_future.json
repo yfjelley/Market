@@ -19,12 +19,10 @@
     "MARKETS": {
         "huobi_future": {
             "symbols": [
-                "BTC_CW",
-                "BTC_NW",
                 "BTC_CQ"
             ],
             "channels": [
-                "kline"
+                "kline_1h"
             ],
             "orderbook_length": 10
         }
