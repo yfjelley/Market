@@ -227,4 +227,4 @@ class HuobiFutureMarket:
             "kline_type": kline_type
         }
         EventKline(**kline).publish()
-        logger.info("symbol:", symbol, "kline:", kline, caller=self)
+        logger.info("symbol:", symbol, "kline_%s:"%range_type, kline, caller=self)
