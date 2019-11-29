@@ -204,7 +204,7 @@ class HuobiFutureMarket:
             range_type = "1day"
         else:
             return
-        result, error = await self._rest_api.get_kline(symbol, size =200, period = range_type)
+        result, error = await self._rest_api.get_kline(symbol, size =130, period = range_type)
 
         if error:
             return
